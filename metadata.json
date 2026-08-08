@@ -1,0 +1,6 @@
+{
+  "name": "TOT AKTARA Academy",
+  "description": "LMS & Certification Platform for TOT AKTARA Academy featuring Trainee, Mentor, and Super Admin Workspaces.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
