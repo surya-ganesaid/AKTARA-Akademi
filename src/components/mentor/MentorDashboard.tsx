@@ -6,7 +6,6 @@ import {
   HelpCircle, 
   Plus, 
   Search, 
-  Loader2, 
   Award, 
   Trash2, 
   Send,
@@ -83,7 +82,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
     fetchData();
   }, []);
 
-  // Save Webinar
+  // Save Webinar Session
   const handleSaveLiveSession = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -115,7 +114,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
     }
   };
 
-  // Delete Webinar
+  // Delete Webinar Session
   const handleDeleteSession = async (id: string) => {
     if (!confirm('Apakah Anda yakin ingin menghapus jadwal webinar ini?')) return;
     try {
@@ -127,15 +126,17 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
     }
   };
 
-  // Post Announcement
+  // Kirim Broadcast Pengumuman (Fix All Columns Constraints)
   const handlePostAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!announcementText.trim()) return;
 
     try {
       const { error } = await supabase.from('announcements').insert([{
+        title: 'Pengumuman Mentor',
         content: announcementText.trim(),
         author: userName,
+        mentor_name: userName,
         batch_id: selectedBatchId === 'all' ? null : selectedBatchId
       }]);
 
@@ -492,7 +493,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                   <div className="space-y-1">
                     <p className="text-xs text-amber-950 font-bold leading-relaxed">{ann.content}</p>
                     <p className="text-[10px] text-amber-800 font-extrabold">
-                      Oleh: {ann.author || 'Mentor'} • {new Date(ann.created_at).toLocaleDateString()}
+                      Oleh: {ann.author || ann.mentor_name || 'Mentor'} • {new Date(ann.created_at).toLocaleDateString()}
                     </p>
                   </div>
                   <button
