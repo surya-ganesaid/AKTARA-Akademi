@@ -19,7 +19,12 @@ import {
   Mail,
   Building2,
   KeyRound,
-  Sliders
+  Sliders,
+  Image as ImageIcon,
+  Upload,
+  RotateCcw,
+  Layout,
+  Type
 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 
@@ -52,13 +57,19 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  // Form State Pengaturan System
+  // Form State Pengaturan System & Halaman Depan
   const [settingId, setSettingId] = useState<string | null>(null);
   const [passingScoreKkm, setPassingScoreKkm] = useState<number>(75);
   const [autoLogoutMinutes, setAutoLogoutMinutes] = useState<number>(30);
   const [mentorContactWa, setMentorContactWa] = useState<string>('081806000074');
   const [platformName, setPlatformName] = useState<string>('AKTARA Academy');
   const [enableAutoCertificate, setEnableAutoCertificate] = useState<boolean>(true);
+  const [logoUrl, setLogoUrl] = useState<string>('');
+  
+  // Dynamic Hero & Banner States
+  const [heroTitle, setHeroTitle] = useState<string>('Transformasi Digital Pendidikan Bersama AKTARA');
+  const [heroSubtitle, setHeroSubtitle] = useState<string>('Tingkatkan kompetensi pedagogik, kelola kelas TOT, dan klaim e-Sertifikat resmi terakreditasi KKM 75.');
+  const [bannerImageUrl, setBannerImageUrl] = useState<string>('https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&q=80&w=1200');
 
   // State Management User
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -73,7 +84,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [editEmail, setEditEmail] = useState('');
   const [editInstitution, setEditInstitution] = useState('');
   const [editRole, setEditRole] = useState('trainee');
-  const [newPassword, setNewPassword] = useState(''); // Password Baru
+  const [newPassword, setNewPassword] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -96,6 +107,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         setMentorContactWa(data.mentor_contact_wa || '081806000074');
         setPlatformName(data.platform_name || 'AKTARA Academy');
         setEnableAutoCertificate(data.enable_auto_certificate ?? true);
+        setLogoUrl(data.logo_url || '');
+        if (data.hero_title) setHeroTitle(data.hero_title);
+        if (data.hero_subtitle) setHeroSubtitle(data.hero_subtitle);
+        if (data.banner_image_url) setBannerImageUrl(data.banner_image_url);
       }
     } catch (err) {
       console.error('Gagal memuat pengaturan sistem:', err);
@@ -127,6 +142,40 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     fetchUsers();
   }, []);
 
+  // Handle Upload Logo File
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Ukuran file logo maksimal 2 MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setLogoUrl(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Handle Upload Banner File
+  const handleBannerUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 3 * 1024 * 1024) {
+      alert('Ukuran file gambar banner maksimal 3 MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setBannerImageUrl(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Simpan Pengaturan System ke Supabase
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,6 +189,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         mentor_contact_wa: mentorContactWa.trim(),
         platform_name: platformName.trim(),
         enable_auto_certificate: enableAutoCertificate,
+        logo_url: logoUrl,
+        hero_title: heroTitle.trim(),
+        hero_subtitle: heroSubtitle.trim(),
+        banner_image_url: bannerImageUrl,
         updated_at: new Date().toISOString()
       };
 
@@ -164,7 +217,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       await supabase.from('audit_logs').insert({
         action: 'UPDATE_SYSTEM_SETTINGS',
         user_email: userEmail,
-        details: `${userName} memperbarui Pengaturan Sistem (KKM: ${passingScoreKkm}, Auto Logout: ${autoLogoutMinutes}m)`
+        details: `${userName} memperbarui Pengaturan Halaman Depan & Parameter Sistem`
       });
 
       if (onSaveSettings) {
@@ -187,17 +240,16 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     setEditEmail(user.email || '');
     setEditInstitution(user.institution || '');
     setEditRole(user.role || 'trainee');
-    setNewPassword(''); // Reset field password baru
+    setNewPassword('');
   };
 
-  // Simpan Perubahan Edit User & Reset Password
+  // Simpan Edit User
   const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUser) return;
 
     setSavingEdit(true);
     try {
-      // 1. Update data profil di tabel 'profiles'
       const { error: profileErr } = await supabase
         .from('profiles')
         .update({
@@ -210,7 +262,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
       if (profileErr) throw profileErr;
 
-      // 2. Jika Super Admin mengisi Password Baru, eksekusi Reset Password via Supabase Auth Admin
       let passwordResetMsg = '';
       if (newPassword.trim().length > 0) {
         if (newPassword.trim().length < 6) {
@@ -225,13 +276,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         );
 
         if (pwdErr) {
-          console.warn('Metode Admin API dibatasi, menggunakan fallback log audit:', pwdErr.message);
+          console.warn('Metode Admin API dibatasi:', pwdErr.message);
         }
 
         passwordResetMsg = ` | Password berhasil di-reset`;
       }
 
-      // Record Audit Log
       await supabase.from('audit_logs').insert({
         action: 'UPDATE_USER_DATA',
         user_email: userEmail,
@@ -302,7 +352,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               Pengaturan Sistem & Management User
             </h1>
             <p className="text-xs md:text-sm text-gray-300 mt-1 max-w-xl">
-              Konfigurasi parameter global platform LMS serta kelola, edit, reset password, dan hapus akun pengguna terdaftar.
+              Ubah teks banner & logo halaman login, konfigurasi parameter global platform LMS, serta kelola akun pengguna.
             </p>
           </div>
 
@@ -323,8 +373,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             activeSubTab === 'system' ? 'bg-[#0F2C3A] text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
-          <Settings className="w-4 h-4 text-[#F5C748]" />
-          <span>Pengaturan Parameter Sistem</span>
+          <Layout className="w-4 h-4 text-[#F5C748]" />
+          <span>Halaman Depan & Parameter System</span>
         </button>
 
         <button
@@ -339,7 +389,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         </button>
       </div>
 
-      {/* SUB-TAB 1: PENGATURAN PARAMETER SISTEM */}
+      {/* SUB-TAB 1: PENGATURAN HALAMAN DEPAN & SYSTEM */}
       {activeSubTab === 'system' && (
         loading ? (
           <div className="p-16 text-center text-gray-400 bg-white rounded-3xl border border-gray-100 shadow-sm">
@@ -351,19 +401,149 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             {savedSuccess && (
               <div className="p-4 bg-green-50 border border-green-200 text-green-800 rounded-2xl text-xs font-bold flex items-center gap-3 animate-fade-in">
                 <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />
-                <span>Pengaturan sistem berhasil diperbarui dan tersimpan ke Supabase!</span>
+                <span>Pengaturan Halaman Depan & Sistem berhasil disimpan ke Supabase!</span>
               </div>
             )}
 
-            {/* SECTION 1: KKM & SERTIFIKAT */}
+            {/* SECTION 1: KUSTOMISASI BANNER & TEKS HALAMAN LOGIN */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
+              <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
+                <div className="p-3 bg-purple-50 border border-purple-200 text-purple-600 rounded-2xl">
+                  <Type className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#0F2C3A]">Edit Teks & Banner Halaman Login</h3>
+                  <p className="text-xs text-gray-500">Kustomisasi judul hero, deskripsi, dan gambar banner halaman depan.</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
+                    Judul Utama Banner (Hero Title) *
+                  </label>
+                  <input
+                    type="text"
+                    value={heroTitle}
+                    onChange={(e) => setHeroTitle(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm font-bold text-[#0F2C3A] focus:outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
+                    Deskripsi Singkat Banner (Hero Subtitle) *
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={heroSubtitle}
+                    onChange={(e) => setHeroSubtitle(e.target.value)}
+                    className="w-full p-3 rounded-xl bg-gray-50 border border-gray-200 text-xs font-medium text-gray-800 focus:outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
+                    Gambar Banner Halaman Login
+                  </label>
+                  <div className="flex flex-col sm:flex-row items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-200">
+                    <img 
+                      src={bannerImageUrl} 
+                      alt="Banner Preview" 
+                      className="w-full sm:w-48 h-28 object-cover rounded-xl border border-gray-200 shadow-sm"
+                    />
+                    <div className="space-y-2 flex-1">
+                      <label className="inline-flex items-center gap-2 px-4 py-2 bg-[#0F2C3A] hover:bg-[#183d50] text-white text-xs font-bold rounded-xl transition cursor-pointer">
+                        <Upload className="w-4 h-4 text-[#F5C748]" />
+                        <span>Upload Gambar Baru</span>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={handleBannerUpload} 
+                          className="hidden" 
+                        />
+                      </label>
+                      <p className="text-[10px] text-gray-400 font-medium">
+                        Atau masukkan URL gambar langsung di bawah ini:
+                      </p>
+                      <input
+                        type="url"
+                        value={bannerImageUrl}
+                        onChange={(e) => setBannerImageUrl(e.target.value)}
+                        placeholder="https://..."
+                        className="w-full px-3 py-1.5 bg-white border border-gray-200 text-xs font-semibold rounded-lg focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION 2: LOGO PLATFORM */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
+              <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
+                <div className="p-3 bg-indigo-50 border border-indigo-200 text-indigo-600 rounded-2xl">
+                  <ImageIcon className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#0F2C3A]">Logo Official Platform</h3>
+                  <p className="text-xs text-gray-500">Logo resmi untuk Sidebar, Header, dan Halaman Login.</p>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center gap-6">
+                <div className="flex flex-col items-center gap-2">
+                  <p className="text-[11px] font-bold text-gray-500 uppercase">Logo Preview</p>
+                  <div className="w-20 h-20 rounded-2xl bg-[#0F2C3A] border-2 border-[#F5C748] flex items-center justify-center p-2 shadow-md overflow-hidden">
+                    {logoUrl ? (
+                      <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-xl bg-[#F5C748] text-[#0F2C3A] flex items-center justify-center font-black text-xl">
+                        A
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex-1 space-y-3 text-center sm:text-left">
+                  <div className="flex flex-wrap items-center gap-3 justify-center sm:justify-start">
+                    <label className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#0F2C3A] hover:bg-[#183d50] text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-sm">
+                      <Upload className="w-4 h-4 text-[#F5C748]" />
+                      <span>Pilih File Logo</span>
+                      <input 
+                        type="file" 
+                        accept="image/png, image/jpeg, image/svg+xml" 
+                        onChange={handleLogoUpload} 
+                        className="hidden" 
+                      />
+                    </label>
+
+                    {logoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setLogoUrl('')}
+                        className="inline-flex items-center gap-1.5 px-3 py-2.5 border border-red-200 bg-red-50 text-red-600 text-xs font-bold rounded-xl transition cursor-pointer"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Reset Logo</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION 3: PARAMETER LAINNYA */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
               <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
                 <div className="p-3 bg-amber-50 border border-amber-200 text-amber-600 rounded-2xl">
                   <Award className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-[#0F2C3A]">Standar Akademik & Sertifikasi</h3>
-                  <p className="text-xs text-gray-500">Konfigurasi nilai KKM dan penerbitan sertifikat digital.</p>
+                  <h3 className="text-base font-bold text-[#0F2C3A]">Parameter KKM & Sistem</h3>
+                  <p className="text-xs text-gray-500">Nilai KKM, durasi auto logout, dan kontak mentor.</p>
                 </div>
               </div>
 
@@ -372,109 +552,28 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
                     Standar Nilai Kelulusan KKM (0–100) *
                   </label>
-                  <div className="relative">
-                    <Sliders className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5" />
-                    <input
-                      type="number"
-                      min="50"
-                      max="100"
-                      value={passingScoreKkm}
-                      onChange={(e) => setPassingScoreKkm(Number(e.target.value))}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm font-bold text-[#0F2C3A] focus:outline-none"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
-                    Penerbitan E-Sertifikat Otomatis
-                  </label>
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200">
-                    <span className="text-xs font-bold text-[#0F2C3A]">Aktifkan Klaim Langsung</span>
-                    <input
-                      type="checkbox"
-                      checked={enableAutoCertificate}
-                      onChange={(e) => setEnableAutoCertificate(e.target.checked)}
-                      className="w-5 h-5 text-[#0F2C3A] rounded border-gray-300 focus:ring-[#0F2C3A] cursor-pointer"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* SECTION 2: KEAMANAN & BRANDING */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
-              <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
-                <div className="p-3 bg-blue-50 border border-blue-200 text-blue-600 rounded-2xl">
-                  <ShieldCheck className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-[#0F2C3A]">Sistem & Keamanan Sesi</h3>
-                  <p className="text-xs text-gray-500">Pengaturan durasi aktif login dan branding platform.</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
-                    Durasi Auto-Logout Sesi Inaktif (Menit) *
-                  </label>
-                  <div className="relative">
-                    <Clock className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5" />
-                    <input
-                      type="number"
-                      min="5"
-                      max="180"
-                      value={autoLogoutMinutes}
-                      onChange={(e) => setAutoLogoutMinutes(Number(e.target.value))}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm font-bold text-[#0F2C3A] focus:outline-none"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
-                    Nama Resmi Platform LMS *
-                  </label>
-                  <div className="relative">
-                    <Globe className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5" />
-                    <input
-                      type="text"
-                      value={platformName}
-                      onChange={(e) => setPlatformName(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm font-bold text-[#0F2C3A] focus:outline-none"
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* SECTION 3: KONTAK HELPDESK */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
-              <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
-                <div className="p-3 bg-purple-50 border border-purple-200 text-purple-600 rounded-2xl">
-                  <Phone className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-[#0F2C3A]">Kontak & Bantuan Mentor</h3>
-                  <p className="text-xs text-gray-500">Nomor WhatsApp pendampingan peserta.</p>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
-                  Nomor WhatsApp Official Helpdesk / Mentor *
-                </label>
-                <div className="relative max-w-md">
-                  <Phone className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5" />
                   <input
-                    type="text"
-                    value={mentorContactWa}
-                    onChange={(e) => setMentorContactWa(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm font-bold text-[#0F2C3A] focus:outline-none"
+                    type="number"
+                    min="50"
+                    max="100"
+                    value={passingScoreKkm}
+                    onChange={(e) => setPassingScoreKkm(Number(e.target.value))}
+                    className="w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm font-bold text-[#0F2C3A] focus:outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
+                    Durasi Auto-Logout Inaktif (Menit) *
+                  </label>
+                  <input
+                    type="number"
+                    min="5"
+                    max="180"
+                    value={autoLogoutMinutes}
+                    onChange={(e) => setAutoLogoutMinutes(Number(e.target.value))}
+                    className="w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm font-bold text-[#0F2C3A] focus:outline-none"
                     required
                   />
                 </div>
@@ -488,14 +587,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 className="inline-flex items-center gap-2 px-8 py-3.5 bg-[#0F2C3A] hover:bg-[#183d50] text-white text-sm font-bold rounded-xl shadow-lg transition cursor-pointer disabled:opacity-50"
               >
                 {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5 text-[#F5C748]" />}
-                <span>{saving ? 'Memproses...' : 'Simpan Pengaturan System'}</span>
+                <span>{saving ? 'Memproses...' : 'Simpan Seluruh Pengaturan'}</span>
               </button>
             </div>
           </form>
         )
       )}
 
-      {/* SUB-TAB 2: MANAGEMENT USER (EDIT, PASSWORD & HAPUS AKUN) */}
+      {/* SUB-TAB 2: MANAGEMENT USER */}
       {activeSubTab === 'users' && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-gray-100 pb-4">
@@ -603,7 +702,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         </div>
       )}
 
-      {/* MODAL EDIT USER & RESET PASSWORD */}
+      {/* MODAL EDIT USER */}
       {editingUser && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl relative font-sans space-y-6">
@@ -654,7 +753,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 </div>
               </div>
 
-              {/* INPUT RESET PASSWORD BARU */}
               <div>
                 <label className="block text-xs font-bold text-amber-700 uppercase mb-1">
                   Reset Password Baru (Opsional)

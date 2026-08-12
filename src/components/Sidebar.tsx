@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, 
   Layers, 
@@ -15,6 +15,7 @@ import {
   Megaphone,
   HelpCircle as QuizIcon
 } from 'lucide-react';
+import { supabase } from '../utils/supabase';
 
 interface SidebarProps {
   activeTab: string;
@@ -29,6 +30,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
   userRole = 'trainee', 
   onLogout 
 }) => {
+  const [logoUrl, setLogoUrl] = useState<string>('');
+  const [platformName, setPlatformName] = useState<string>('AKTARA ACADEMY');
+
+  // Fetch Logo & Branding dari Supabase system_settings
+  useEffect(() => {
+    const fetchBranding = async () => {
+      try {
+        const { data } = await supabase
+          .from('system_settings')
+          .select('logo_url, platform_name')
+          .limit(1)
+          .maybeSingle();
+
+        if (data) {
+          if (data.logo_url) setLogoUrl(data.logo_url);
+          if (data.platform_name) setPlatformName(data.platform_name);
+        }
+      } catch (err) {
+        console.error('Gagal memuat logo sidebar:', err);
+      }
+    };
+
+    fetchBranding();
+  }, []);
+
   const normalizedRole = userRole.toLowerCase().replace(/[\s_-]/g, '');
   const isAdmin = normalizedRole.includes('admin') || normalizedRole.includes('superadmin');
   const isMentor = normalizedRole.includes('mentor') || normalizedRole.includes('instructor');
@@ -37,13 +63,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside className="w-64 bg-[#071923] text-white flex flex-col justify-between shrink-0 border-r border-white/10 font-sans">
       <div>
-        {/* Brand Header */}
+        {/* Brand Header Dinamis */}
         <div className="p-6 border-b border-white/10 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#F5C748] text-[#0F2C3A] flex items-center justify-center font-black text-xl shadow-lg">
-            A
+          <div className="w-10 h-10 rounded-2xl bg-[#F5C748] text-[#0F2C3A] flex items-center justify-center font-black text-xl shadow-lg overflow-hidden shrink-0 border border-[#F5C748]">
+            {logoUrl ? (
+              <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
+            ) : (
+              'A'
+            )}
           </div>
-          <div>
-            <h1 className="font-black text-sm tracking-wide text-white">AKTARA ACADEMY</h1>
+          <div className="min-w-0">
+            <h1 className="font-black text-sm tracking-wide text-white truncate uppercase">{platformName}</h1>
             <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-widest">CONSOLE SYSTEM V2.4</p>
           </div>
         </div>
@@ -151,7 +181,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           )}
 
-          {/* 2. MENU MENTOR / MASTER TRAINER (NAVIGASI SIDEBAR MENTOR) */}
+          {/* 2. MENU MENTOR */}
           {isMentor && (
             <div>
               <p className="px-3 text-[10px] font-black text-gray-400 uppercase tracking-wider mb-2">
@@ -213,7 +243,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           )}
 
-          {/* 3. MENU TRAINEE / GURU */}
+          {/* 3. MENU TRAINEE */}
           {isTrainee && (
             <div>
               <p className="px-3 text-[10px] font-black text-gray-400 uppercase tracking-wider mb-2">

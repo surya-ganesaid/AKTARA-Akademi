@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { 
   User, 
   Lock, 
-  Mail, 
   Building2, 
   Layers, 
   Loader2, 
@@ -29,6 +28,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [batches, setBatches] = useState<BatchOption[]>([]);
+  
+  // Dynamic States with fallback
+  const [logoUrl, setLogoUrl] = useState<string>('');
+  const [platformName, setPlatformName] = useState<string>('AKTARA ACADEMY');
+  const [heroTitle, setHeroTitle] = useState<string>('Transformasi Digital Pendidikan Bersama AKTARA');
+  const [heroSubtitle, setHeroSubtitle] = useState<string>('Tingkatkan kompetensi pedagogik, kelola kelas TOT, dan klaim e-Sertifikat resmi terakreditasi KKM 75.');
+  const [bannerImageUrl, setBannerImageUrl] = useState<string>('https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&q=80&w=1200');
 
   // Form States
   const [email, setEmail] = useState('');
@@ -38,26 +44,45 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
   const [selectedBatchId, setSelectedBatchId] = useState('');
   const [role, setRole] = useState('trainee');
 
-  // Fetch Batch
+  // Fetch Branding & Batches dari Supabase
   useEffect(() => {
-    const fetchBatches = async () => {
+    const fetchData = async () => {
       try {
-        const { data, error } = await supabase
+        // Ambil data settings terbaru dengan memprioritaskan updated_at terbaru
+        const { data: systemData, error: sysErr } = await supabase
+          .from('system_settings')
+          .select('*')
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (sysErr) {
+          console.warn('Gagal membaca system_settings (Cek RLS Supabase):', sysErr.message);
+        }
+
+        if (systemData) {
+          if (systemData.logo_url) setLogoUrl(systemData.logo_url);
+          if (systemData.platform_name) setPlatformName(systemData.platform_name);
+          if (systemData.hero_title) setHeroTitle(systemData.hero_title);
+          if (systemData.hero_subtitle) setHeroSubtitle(systemData.hero_subtitle);
+          if (systemData.banner_image_url) setBannerImageUrl(systemData.banner_image_url);
+        }
+
+        const { data: batchData } = await supabase
           .from('batches')
           .select('id, title')
           .order('created_at', { ascending: false });
 
-        if (error) throw error;
-        if (data && data.length > 0) {
-          setBatches(data);
-          setSelectedBatchId(data[0].id);
+        if (batchData && batchData.length > 0) {
+          setBatches(batchData);
+          setSelectedBatchId(batchData[0].id);
         }
       } catch (err) {
-        console.error('Gagal mengambil data batch:', err);
+        console.error('Terjadi kesalahan saat memuat data awal:', err);
       }
     };
 
-    fetchBatches();
+    fetchData();
   }, []);
 
   // Submit Handler
@@ -177,11 +202,15 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
       {/* HEADER TOP LOGO BRAND */}
       <header className="flex items-center justify-between relative z-10">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#F5C748] text-[#071923] flex items-center justify-center font-black text-xl shadow-lg">
-            A
+          <div className="w-10 h-10 rounded-2xl bg-[#F5C748] text-[#071923] flex items-center justify-center font-black text-xl shadow-lg overflow-hidden border border-[#F5C748]">
+            {logoUrl ? (
+              <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
+            ) : (
+              'A'
+            )}
           </div>
           <div>
-            <h1 className="font-black text-sm tracking-wider text-white uppercase">AKTARA ACADEMY</h1>
+            <h1 className="font-black text-sm tracking-wider text-white uppercase">{platformName}</h1>
             <p className="text-[10px] text-[#F5C748] font-extrabold uppercase tracking-widest">CONSOLE SYSTEM V2.4</p>
           </div>
         </div>
@@ -192,34 +221,33 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
         </div>
       </header>
 
-      {/* MAIN CONTENT SPLIT SCREEN */}
+      {/* MAIN CONTENT */}
       <main className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center my-auto py-8 relative z-10 max-w-7xl mx-auto w-full">
         
-        {/* SISI KIRI: HERO IMAGE & PROMO */}
+        {/* SISI KIRI: HERO IMAGE & TEKS DINAMIS */}
         <div className="lg:col-span-7 relative flex flex-col justify-center">
           <div className="relative rounded-3xl overflow-hidden border border-white/10 shadow-2xl bg-[#0F2C3A]/60 backdrop-blur-md p-2">
             <img 
-              src="https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&q=80&w=1200" 
-              alt="AKTARA Academy Training" 
+              src={bannerImageUrl} 
+              alt="AKTARA Academy Banner" 
               className="w-full h-[360px] md:h-[480px] object-cover rounded-2xl filter brightness-90 contrast-105"
             />
-            {/* Overlay Gradient */}
             <div className="absolute inset-0 bg-gradient-to-t from-[#071923] via-[#071923]/40 to-transparent rounded-2xl p-6 md:p-10 flex flex-col justify-end">
               <span className="inline-flex items-center gap-2 px-3 py-1 bg-[#F5C748] text-[#071923] text-[10px] font-black rounded-full uppercase tracking-wider w-fit mb-2">
                 <Sparkles className="w-3 h-3" />
                 Program Pelatihan Master Trainer
               </span>
               <h2 className="text-2xl md:text-4xl font-black text-white leading-tight">
-                Transformasi Digital Pendidikan Bersama AKTARA
+                {heroTitle}
               </h2>
               <p className="text-xs md:text-sm text-gray-300 mt-2 max-w-xl font-medium">
-                Tingkatkan kompetensi pedagogik, kelola kelas TOT, dan klaim e-Sertifikat resmi terakreditasi KKM 75.
+                {heroSubtitle}
               </p>
             </div>
           </div>
         </div>
 
-        {/* SISI KANAN: FORM LOGIN / REGISTER STYLED ALA SAMPLE */}
+        {/* SISI KANAN: FORM LOGIN / REGISTER */}
         <div className="lg:col-span-5 flex flex-col justify-center max-w-md mx-auto w-full space-y-6 lg:pl-6">
           <div className="space-y-2">
             <h3 className="text-2xl md:text-3xl font-black tracking-tight text-white uppercase">
@@ -233,7 +261,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Register Fields */}
             {isRegisterMode && (
               <>
                 <div>
@@ -283,7 +310,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
               </>
             )}
 
-            {/* Input Email / Username */}
             <div>
               <div className="relative">
                 <User className="w-4 h-4 text-[#F5C748] absolute left-4 top-3.5" />
@@ -298,7 +324,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
               </div>
             </div>
 
-            {/* Input Password */}
             <div>
               <div className="relative">
                 <Lock className="w-4 h-4 text-[#F5C748] absolute left-4 top-3.5" />
@@ -313,7 +338,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
               </div>
             </div>
 
-            {/* Tombol Login Pill dengan Highlight Kuning Aksen */}
             <div className="pt-2">
               <button
                 type="submit"
@@ -332,7 +356,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
             </div>
           </form>
 
-          {/* Footer Navigation Switcher */}
           <div className="flex items-center justify-between text-xs text-gray-400 font-bold pt-2 border-t border-white/10">
             <button
               type="button"
