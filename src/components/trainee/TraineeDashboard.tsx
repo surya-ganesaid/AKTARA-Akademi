@@ -1,295 +1,408 @@
-import React from 'react';
-import { LMSModule, LiveSession, TraineeTask, TraineeTab } from '../../types';
-import {
+import React, { useState, useEffect } from 'react';
+import { 
+  BookOpen, 
+  Video, 
+  Award, 
+  ExternalLink, 
+  Loader2, 
+  Clock, 
+  UserCheck, 
+  Radio, 
+  CheckCircle2, 
   Sparkles,
-  BookOpen,
-  Calendar,
-  CheckCircle2,
-  Lock,
-  ArrowRight,
-  ExternalLink,
-  Award,
-  AlertCircle,
-  FileText,
-  Clock,
-  ChevronRight
+  GraduationCap,
+  Megaphone,
+  HelpCircle,
+  Send,
+  Check
 } from 'lucide-react';
+import { supabase } from '../../utils/supabase';
+import { generateCertificatePDF } from '../../utils/certificateGenerator';
 
-interface TraineeDashboardProps {
-  userName: string;
-  modules: LMSModule[];
-  tasks: TraineeTask[];
-  liveSessions: LiveSession[];
-  onNavigateTab: (tab: TraineeTab) => void;
-  onSelectModule: (moduleId: number) => void;
+interface LmsModule {
+  id: string;
+  title: string;
+  description: string;
+  resource_url: string;
+  passing_score: number;
 }
 
-export const TraineeDashboard: React.FC<TraineeDashboardProps> = ({
-  userName,
-  modules,
-  tasks,
-  liveSessions,
-  onNavigateTab,
-  onSelectModule
-}) => {
-  const completedCount = modules.filter((m) => m.status === 'completed').length;
-  const progressPercent = Math.round((completedCount / modules.length) * 100);
-  const activeModule = modules.find((m) => m.status === 'active') || modules[0];
-  const activeSession = liveSessions.find((s) => s.status === 'live') || liveSessions[0];
-  const pendingRevisionTask = tasks.find((t) => t.status === 'perlu_revisi');
+interface LiveSession {
+  id: string;
+  title: string;
+  mentor_name: string;
+  meet_url: string;
+  session_date: string;
+  status: 'upcoming' | 'live' | 'finished' | string;
+}
+
+interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  mentor_name: string;
+  created_at: string;
+}
+
+interface QuizItem {
+  id: string;
+  title: string;
+  question: string;
+  created_at: string;
+}
+
+interface TraineePortalProps {
+  userName: string;
+  userEmail: string;
+  activeTab?: string;
+}
+
+export const TraineePortal: React.FC<TraineePortalProps> = ({ userName, userEmail, activeTab = 'modules' }) => {
+  const [modules, setModules] = useState<LmsModule[]>([]);
+  const [sessions, setSessions] = useState<LiveSession[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [quizzes, setQuizzes] = useState<QuizItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [generatingCert, setGeneratingCert] = useState(false);
+
+  // Form Kuis Refleksi State
+  const [quizAnswers, setQuizAnswers] = useState<{ [quizId: string]: string }>({});
+  const [submittingQuiz, setSubmittingQuiz] = useState<{ [quizId: string]: boolean }>({});
+  const [submittedQuiz, setSubmittedQuiz] = useState<{ [quizId: string]: boolean }>({});
+
+  useEffect(() => {
+    const fetchTraineeData = async () => {
+      setLoading(true);
+      try {
+        const { data: modData } = await supabase.from('lms_modules').select('*').order('created_at', { ascending: true });
+        setModules(modData || []);
+
+        const { data: sesData } = await supabase.from('live_sessions').select('*').order('session_date', { ascending: true });
+        setSessions(sesData || []);
+
+        const { data: annData } = await supabase.from('announcements').select('*').order('created_at', { ascending: false }).limit(2);
+        setAnnouncements(annData || []);
+
+        const { data: quizData } = await supabase.from('quizzes').select('*').order('created_at', { ascending: false });
+        setQuizzes(quizData || []);
+      } catch (err) {
+        console.error('Error loading trainee portal data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTraineeData();
+  }, []);
+
+  const handleDownloadCertificate = async () => {
+    setGeneratingCert(true);
+    try {
+      await generateCertificatePDF({
+        participantName: userName,
+        participantInstitution: 'Peserta AKTARA Academy',
+        batchTitle: 'TOT Master Trainer AKTARA 2026',
+        certificateNumber: `AKTARA/CERT/${Date.now().toString().slice(-6)}`
+      });
+    } catch (err: any) {
+      alert(`Gagal menerbitkan sertifikat: ${err.message}`);
+    } finally {
+      setGeneratingCert(false);
+    }
+  };
+
+  const handleSubmitQuizAnswer = async (quizId: string, quizTitle: string) => {
+    const answer = quizAnswers[quizId];
+    if (!answer || answer.trim() === '') {
+      alert('Silakan tuliskan jawaban refleksi Anda sebelum mengirim.');
+      return;
+    }
+
+    setSubmittingQuiz(prev => ({ ...prev, [quizId]: true }));
+    try {
+      const { error } = await supabase.from('quiz_answers').insert([{
+        quiz_id: quizId,
+        trainee_name: userName,
+        trainee_email: userEmail,
+        answer: answer
+      }]);
+
+      if (error) throw error;
+
+      await supabase.from('audit_logs').insert({
+        action: 'SUBMIT_QUIZ_ANSWER',
+        user_email: userEmail,
+        details: `Peserta ${userName} menjawab kuis "${quizTitle}": ${answer}`
+      });
+
+      setSubmittedQuiz(prev => ({ ...prev, [quizId]: true }));
+      alert('Jawaban refleksi Anda berhasil dikirim ke Mentor!');
+    } catch (err: any) {
+      alert(`Gagal mengirim jawaban: ${err.message}`);
+    } finally {
+      setSubmittingQuiz(prev => ({ ...prev, [quizId]: false }));
+    }
+  };
+
+  // Penyesuaian tab
+  const currentTab = activeTab === 'trainee' ? 'modules' : activeTab;
 
   return (
-    <div className="space-y-6">
-      
-      {/* Welcome Hero Banner */}
-      <div className="bg-gradient-to-r from-[#0F2C3A] via-[#163f52] to-[#0F2C3A] rounded-2xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-[#F5C748]/10 blur-2xl pointer-events-none"></div>
-
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 relative z-10">
-          <div>
-            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-[#F5C748]/20 text-[#F5C748] text-xs font-bold mb-3 border border-[#F5C748]/30">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Program TOT Facilitator Master • Batch 5</span>
+    <div className="p-6 md:p-10 max-w-6xl mx-auto font-sans space-y-8">
+      {/* BANNER BROADCAST PENGUMUMAN DARI MENTOR */}
+      {announcements.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 shadow-sm space-y-3">
+          {announcements.map((ann) => (
+            <div key={ann.id} className="flex items-start gap-3">
+              <Megaphone className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black text-amber-900 uppercase">PENGUMUMAN MENTOR ({ann.mentor_name}):</span>
+                  <span className="text-[10px] text-amber-700 font-bold">{ann.title}</span>
+                </div>
+                <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">{ann.content}</p>
+              </div>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              Selamat Datang, {userName}! 👋
-            </h1>
-            <p className="text-sm text-slate-200 mt-2 max-w-2xl leading-relaxed">
-              Anda sedang menyelesaikan sertifikasi nasional Trainer of Trainers AKTARA. Selesaikan 5 modul kompetensi dan unggah portofolio digital untuk menerbitkan e-sertifikat terverifikasi.
-            </p>
-          </div>
-
-          {/* Quick Stat Counter */}
-          <div className="flex items-center gap-3 bg-[#0a1e28]/80 p-4 rounded-xl border border-slate-700">
-            <div className="text-center px-3 border-r border-slate-700">
-              <span className="text-2xl font-black text-[#F5C748]">{completedCount}/5</span>
-              <span className="text-[10px] text-slate-300 block uppercase font-medium">Modul Selesai</span>
-            </div>
-            <div className="text-center px-3">
-              <span className="text-2xl font-black text-emerald-400">88.5</span>
-              <span className="text-[10px] text-slate-300 block uppercase font-medium">Rata-Rata Nilai</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Overall Progress Bar */}
-        <div className="mt-6 pt-6 border-t border-slate-700/80">
-          <div className="flex items-center justify-between text-xs font-bold mb-2">
-            <span className="text-slate-200 flex items-center space-x-2">
-              <span>Progres Kelulusan Total</span>
-              <span className="text-[#F5C748]">({progressPercent}%)</span>
-            </span>
-            <span className="text-slate-300">Target minimal: 100% Modul + Portofolio</span>
-          </div>
-          <div className="w-full bg-slate-800 rounded-full h-3 p-0.5 border border-slate-700">
-            <div
-              className="bg-gradient-to-r from-[#F5C748] to-[#f8d87a] h-2 rounded-full transition-all duration-500 shadow-sm"
-              style={{ width: `${progressPercent}%` }}
-            ></div>
-          </div>
-        </div>
-      </div>
-
-      {/* Warning Alert Banner (If Task Needs Revision) */}
-      {pendingRevisionTask && (
-        <div className="bg-amber-50 border-l-4 border-[#C68E28] rounded-xl p-4 shadow-sm flex items-start justify-between gap-4">
-          <div className="flex items-start space-x-3">
-            <AlertCircle className="w-5 h-5 text-[#C68E28] flex-shrink-0 mt-0.5" />
-            <div>
-              <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wider">
-                Perhatian: Catatan Revisi Tugas Portofolio
-              </h4>
-              <p className="text-xs text-amber-800 mt-1">
-                Tugas <span className="font-semibold">"{pendingRevisionTask.title}"</span> membutuhkan penyesuaian dari Mentor. Silakan periksa catatan dan unggah ulang berkas revisi Anda.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => onNavigateTab('tasks')}
-            className="px-3.5 py-1.5 bg-[#C68E28] hover:bg-[#a87820] text-white font-bold text-xs rounded-lg transition whitespace-nowrap flex items-center space-x-1"
-          >
-            <span>Perbaiki Sekarang</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
+          ))}
         </div>
       )}
 
-      {/* Main Grid: Live Session Widget & Active Module Launch */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Live Session Google Meet Widget */}
-        <div className="lg:col-span-1 bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
+      {/* Banner Header Peserta Guru */}
+      <div className="bg-[#0F2C3A] text-white p-8 rounded-3xl shadow-xl relative overflow-hidden">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-red-100 text-red-700 text-[10px] font-extrabold uppercase tracking-wider">
-                <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
-                <span>Live Sesi Google Meet</span>
-              </span>
-              <Calendar className="w-4 h-4 text-slate-400" />
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-lg text-[11px] font-bold text-[#F5C748] mb-3 border border-white/10">
+              <GraduationCap className="w-3.5 h-3.5" />
+              Ruang Belajar Peserta Guru
             </div>
-
-            <h3 className="text-sm font-bold text-slate-900 line-clamp-2">
-              {activeSession.title}
-            </h3>
-            <p className="text-xs text-slate-500 mt-1">
-              Instruktur: <span className="font-semibold text-slate-800">{activeSession.trainer}</span>
-            </p>
-
-            <div className="mt-4 p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1.5 text-xs text-slate-600">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">Jadwal:</span>
-                <span className="font-bold text-slate-800">{activeSession.date}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">Waktu:</span>
-                <span className="font-bold text-[#0F2C3A]">{activeSession.time}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-5">
-            <a
-              href={activeSession.meetUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center space-x-2"
-            >
-              <span>Gabung Sesi Live (Google Meet)</span>
-              <ExternalLink className="w-4 h-4" />
-            </a>
-          </div>
-        </div>
-
-        {/* Active Module Card */}
-        <div className="lg:col-span-2 bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 text-[10px] font-extrabold uppercase tracking-wider">
-                Modul Berjalan Sekarang
-              </span>
-              <Clock className="w-4 h-4 text-slate-400" />
-            </div>
-
-            <h3 className="text-base font-bold text-slate-900 mt-1">
-              {activeModule.title}
-            </h3>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
-              {activeModule.subtitle} • <span className="text-[#0F2C3A] font-semibold">{activeModule.duration}</span>
-            </p>
-            <p className="text-xs text-slate-600 mt-3 leading-relaxed line-clamp-2">
-              {activeModule.description}
+            <h1 className="text-2xl md:text-3xl font-black text-white">
+              Selamat Belajar, {userName}!
+            </h1>
+            <p className="text-xs md:text-sm text-gray-300 mt-1 max-w-xl">
+              Gunakan menu navigasi di sebelah kiri untuk mengakses modul pelatihan, jadwal live session, kuis refleksi, dan sertifikat.
             </p>
           </div>
 
-          <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between">
-            <div className="text-xs text-slate-500">
-              <span className="font-bold text-slate-900">{activeModule.resources.length}</span> Berkas Modul & Kit Pembelajaran
-            </div>
-            <button
-              onClick={() => {
-                onSelectModule(activeModule.id);
-                onNavigateTab('lms');
-              }}
-              className="px-4 py-2 bg-[#0F2C3A] hover:bg-[#153e52] text-[#F5C748] font-bold text-xs rounded-xl transition flex items-center space-x-2 shadow-sm"
-            >
-              <span>Buka Modul Belajar</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
+          <div className="bg-black/30 backdrop-blur-md p-4 rounded-2xl border border-white/10 shrink-0 text-center md:text-right">
+            <p className="text-[11px] font-bold text-gray-400 uppercase">Status Peserta</p>
+            <p className="text-lg font-black text-[#F5C748]">AKTIF (Lulus KKM)</p>
           </div>
         </div>
       </div>
 
-      {/* Module Timeline Roadmap */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h3 className="text-base font-extrabold text-[#0F2C3A]">
-              Alur Sertifikasi & Timeline Modul Belajar
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Selesaikan modul secara berurutan untuk membuka akses uji portofolio
-            </p>
-          </div>
-          <button
-            onClick={() => onNavigateTab('lms')}
-            className="text-xs font-bold text-[#0F2C3A] hover:underline flex items-center space-x-1"
-          >
-            <span>Lihat Semua LMS</span>
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
+      {/* 1. KONTEN MATERI LMS */}
+      {(currentTab === 'modules' || currentTab === 'trainee') && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {loading ? (
+            <div className="col-span-full p-12 text-center text-gray-400 bg-white rounded-2xl border border-gray-100">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-[#0F2C3A]" />
+              <p className="text-sm font-semibold">Memuat materi pelatihan...</p>
+            </div>
+          ) : modules.length === 0 ? (
+            <div className="col-span-full p-12 text-center text-gray-400 bg-white rounded-2xl border border-gray-100">
+              <BookOpen className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+              <p className="text-sm font-bold text-gray-600">Belum ada modul yang ditugaskan.</p>
+            </div>
+          ) : (
+            modules.map((mod, idx) => (
+              <div key={mod.id} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between hover:border-[#0F2C3A]/30 transition">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="px-2.5 py-1 bg-amber-50 text-amber-800 text-[10px] font-extrabold rounded-md border border-amber-200 uppercase">
+                      MODUL {idx + 1}
+                    </span>
+                    <span className="text-xs font-semibold text-gray-400 flex items-center gap-1">
+                      <Award className="w-3.5 h-3.5 text-[#F5C748]" /> KKM: {mod.passing_score}
+                    </span>
+                  </div>
+                  <h3 className="text-base font-bold text-[#0F2C3A] mb-2">{mod.title}</h3>
+                  <p className="text-xs text-gray-500 leading-relaxed mb-4">{mod.description || 'Pelajari materi dan selesaikan tugas sebelum batas waktu.'}</p>
+                </div>
 
-        <div className="space-y-3">
-          {modules.map((module) => {
-            const isCompleted = module.status === 'completed';
-            const isActive = module.status === 'active';
-            const isLocked = module.status === 'locked';
-
-            return (
-              <div
-                key={module.id}
-                onClick={() => {
-                  if (!isLocked) {
-                    onSelectModule(module.id);
-                    onNavigateTab('lms');
-                  }
-                }}
-                className={`p-4 rounded-xl border transition-all duration-200 flex items-center justify-between gap-4 cursor-pointer ${
-                  isCompleted
-                    ? 'bg-slate-50 border-slate-200 hover:border-emerald-300'
-                    : isActive
-                    ? 'bg-blue-50/50 border-blue-300 ring-2 ring-blue-500/20 shadow-sm'
-                    : 'bg-slate-100/60 border-slate-200 opacity-60 cursor-not-allowed'
-                }`}
-              >
-                <div className="flex items-center space-x-3.5">
-                  <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm ${
-                      isCompleted
-                        ? 'bg-emerald-500 text-white'
-                        : isActive
-                        ? 'bg-[#0F2C3A] text-[#F5C748]'
-                        : 'bg-slate-300 text-slate-600'
-                    }`}
+                {mod.resource_url && (
+                  <a
+                    href={mod.resource_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0F2C3A] hover:bg-[#183d50] text-white text-xs font-bold rounded-xl transition cursor-pointer mt-2"
                   >
-                    {isCompleted ? (
-                      <CheckCircle2 className="w-5 h-5" />
-                    ) : isLocked ? (
-                      <Lock className="w-4 h-4" />
+                    <ExternalLink className="w-3.5 h-3.5 text-[#F5C748]" />
+                    <span>Buka Tautan Materi & Tugas LMS</span>
+                  </a>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* 2. KONTEN LIVE MENTORING */}
+      {currentTab === 'live' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {loading ? (
+            <div className="col-span-full p-12 text-center text-gray-400 bg-white rounded-2xl border border-gray-100">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-[#0F2C3A]" />
+              <p className="text-sm font-semibold">Memuat jadwal webinar...</p>
+            </div>
+          ) : sessions.length === 0 ? (
+            <div className="col-span-full p-12 text-center text-gray-400 bg-white rounded-2xl border border-gray-100">
+              <Video className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+              <p className="text-sm font-bold text-gray-600">Belum ada sesi live mendatang.</p>
+            </div>
+          ) : (
+            sessions.map((ses) => (
+              <div key={ses.id} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    {ses.status === 'live' ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-50 text-red-600 text-xs font-black rounded-full border border-red-200 animate-pulse">
+                        <Radio className="w-3.5 h-3.5" /> LIVE NOW
+                      </span>
+                    ) : ses.status === 'finished' ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 text-gray-600 text-xs font-bold rounded-full">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Selesai
+                      </span>
                     ) : (
-                      module.id
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-full border border-blue-200">
+                        <Clock className="w-3.5 h-3.5" /> Akan Datang
+                      </span>
+                    )}
+
+                    <span className="text-xs font-semibold text-gray-400 flex items-center gap-1">
+                      <UserCheck className="w-3.5 h-3.5 text-[#0F2C3A]" /> {ses.mentor_name}
+                    </span>
+                  </div>
+
+                  <h3 className="text-base font-bold text-[#0F2C3A] mb-2">{ses.title}</h3>
+                  <p className="text-xs text-gray-500 mb-4 flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-[#F5C748]" />
+                    {new Date(ses.session_date).toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'short' })}
+                  </p>
+                </div>
+
+                <a
+                  href={ses.meet_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0F2C3A] hover:bg-[#183d50] text-white text-xs font-bold rounded-xl transition cursor-pointer mt-2"
+                >
+                  <ExternalLink className="w-4 h-4 text-[#F5C748]" />
+                  <span>Join Virtual Room (Google Meet/Zoom)</span>
+                </a>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* 3. KONTEN KUIS REFLEKSI */}
+      {currentTab === 'quizzes' && (
+        <div className="space-y-6">
+          {loading ? (
+            <div className="p-12 text-center text-gray-400 bg-white rounded-2xl border border-gray-100">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-[#0F2C3A]" />
+              <p className="text-sm font-semibold">Memuat daftar kuis refleksi...</p>
+            </div>
+          ) : quizzes.length === 0 ? (
+            <div className="p-12 text-center text-gray-400 bg-white rounded-2xl border border-gray-100">
+              <HelpCircle className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+              <p className="text-sm font-bold text-gray-600">Belum ada kuis refleksi yang diterbitkan oleh Mentor.</p>
+            </div>
+          ) : (
+            quizzes.map((quiz) => {
+              const isDone = submittedQuiz[quiz.id];
+
+              return (
+                <div key={quiz.id} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                    <div className="flex items-center gap-2 text-[#0F2C3A]">
+                      <HelpCircle className="w-5 h-5 text-[#F5C748]" />
+                      <h3 className="text-base font-bold">{quiz.title}</h3>
+                    </div>
+                    {isDone ? (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-50 text-green-700 text-xs font-extrabold rounded-full border border-green-200">
+                        <Check className="w-3.5 h-3.5" /> TERKIRIM
+                      </span>
+                    ) : (
+                      <span className="px-3 py-1 bg-amber-50 text-amber-800 text-xs font-bold rounded-full border border-amber-200">
+                        PERLU DIISI
+                      </span>
                     )}
                   </div>
 
                   <div>
-                    <h4 className="text-xs sm:text-sm font-bold text-slate-900">
-                      {module.title}
-                    </h4>
-                    <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                      {module.subtitle} • <span className="text-slate-700">{module.duration}</span>
+                    <p className="text-xs font-bold text-gray-700 uppercase mb-1">Pertanyaan Refleksi:</p>
+                    <p className="text-sm text-gray-800 bg-gray-50 p-4 rounded-xl border border-gray-100 leading-relaxed font-medium">
+                      {quiz.question}
                     </p>
                   </div>
-                </div>
 
-                <div className="flex items-center space-x-3">
-                  <span
-                    className={`px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
-                      isCompleted
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : isActive
-                        ? 'bg-blue-100 text-blue-800 animate-pulse'
-                        : 'bg-slate-200 text-slate-600'
-                    }`}
-                  >
-                    {isCompleted ? 'Selesai' : isActive ? 'Sedang Berjalan' : 'Terkunci'}
-                  </span>
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                  {!isDone ? (
+                    <div className="space-y-3 pt-2">
+                      <label className="block text-xs font-bold text-gray-700 uppercase">Jawaban / Refleksi Anda *</label>
+                      <textarea
+                        rows={3}
+                        placeholder="Tuliskan pemahaman atau refleksi Anda di sini..."
+                        value={quizAnswers[quiz.id] || ''}
+                        onChange={(e) => setQuizAnswers({ ...quizAnswers, [quiz.id]: e.target.value })}
+                        className="w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#0F2C3A]"
+                      />
+
+                      <button
+                        type="button"
+                        disabled={submittingQuiz[quiz.id]}
+                        onClick={() => handleSubmitQuizAnswer(quiz.id, quiz.title)}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#0F2C3A] hover:bg-[#183d50] text-white text-xs font-bold rounded-xl shadow-md transition cursor-pointer disabled:opacity-50"
+                      >
+                        {submittingQuiz[quiz.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 text-[#F5C748]" />}
+                        <span>{submittingQuiz[quiz.id] ? 'Mengirim...' : 'Kirim Jawaban Refleksi'}</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-green-50/60 rounded-xl border border-green-100 text-xs text-green-800 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                      <span>Terima kasih! Jawaban refleksi Anda sudah terekam dan akan ditinjau oleh Mentor.</span>
+                    </div>
+                  )}
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
-      </div>
+      )}
+
+      {/* 4. KONTEN E-SERTIFIKAT */}
+      {currentTab === 'certificate' && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center max-w-2xl mx-auto space-y-6">
+          <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto text-[#F5C748]">
+            <Award className="w-8 h-8 text-amber-600" />
+          </div>
+
+          <div>
+            <h3 className="text-xl font-bold text-[#0F2C3A]">E-Sertifikat Kelulusan Siap Diterbitkan</h3>
+            <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+              Selamat! Kamu telah memenuhi seluruh ambang batas KKM pelatihan TOT AKTARA Academy. Silakan unduh sertifikat resmi ber-QR Code verifikasi di bawah ini.
+            </p>
+          </div>
+
+          <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 text-xs space-y-1 text-left">
+            <p><span className="font-bold text-gray-600">Nama Pemilik:</span> {userName}</p>
+            <p><span className="font-bold text-gray-600">Email Terdaftar:</span> {userEmail}</p>
+            <p><span className="font-bold text-gray-600">Format:</span> Digital PDF A4 (High Quality Print)</p>
+          </div>
+
+          <button
+            type="button"
+            disabled={generatingCert}
+            onClick={handleDownloadCertificate}
+            className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-[#0F2C3A] hover:bg-[#183d50] text-white text-sm font-bold rounded-xl transition cursor-pointer shadow-md disabled:opacity-50"
+          >
+            {generatingCert ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5 text-[#F5C748]" />}
+            <span>{generatingCert ? 'Memproses PDF...' : 'Unduh E-Sertifikat PDF Sekarang'}</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 };
+
+export default TraineePortal;

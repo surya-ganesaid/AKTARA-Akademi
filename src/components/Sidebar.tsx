@@ -1,386 +1,295 @@
 import React from 'react';
-import { UserRole, TraineeTab, MentorTab, AdminTab } from '../types';
-import {
-  GraduationCap,
-  ShieldCheck,
-  UserCheck,
-  Award,
-  BookOpen,
-  FileCheck2,
-  User,
-  CheckCircle2,
-  Calendar,
-  Users,
-  SlidersHorizontal,
-  ShieldAlert,
-  Sparkles,
-  X,
+import { 
+  LayoutDashboard, 
+  Layers, 
+  BookOpenCheck, 
+  Award, 
+  UserCheck, 
+  ShieldAlert, 
+  Settings, 
+  BookOpen, 
+  Video, 
+  HelpCircle, 
   LogOut,
-  Settings
+  Users,
+  Megaphone,
+  HelpCircle as QuizIcon
 } from 'lucide-react';
 
 interface SidebarProps {
-  currentRole: UserRole;
-  onRoleChange: (role: UserRole) => void;
-  activeTraineeTab: TraineeTab;
-  onTraineeTabChange: (tab: TraineeTab) => void;
-  activeMentorTab: MentorTab;
-  onMentorTabChange: (tab: MentorTab) => void;
-  activeAdminTab: AdminTab;
-  onAdminTabChange: (tab: AdminTab) => void;
-  isOpenMobile: boolean;
-  onCloseMobile: () => void;
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  userRole?: string;
   onLogout?: () => void;
-  logoUrl?: string;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({
-  currentRole,
-  activeTraineeTab,
-  onTraineeTabChange,
-  activeMentorTab,
-  onMentorTabChange,
-  activeAdminTab,
-  onAdminTabChange,
-  isOpenMobile,
-  onCloseMobile,
-  onLogout,
-  logoUrl
+export const Sidebar: React.FC<SidebarProps> = ({ 
+  activeTab, 
+  setActiveTab, 
+  userRole = 'trainee', 
+  onLogout 
 }) => {
-  const roleDisplayNames: Record<UserRole, string> = {
-    trainee: 'Guru / Trainee',
-    mentor: 'Mentor / Evaluator',
-    admin: 'Super Admin',
-  };
+  const normalizedRole = userRole.toLowerCase().replace(/[\s_-]/g, '');
+  const isAdmin = normalizedRole.includes('admin') || normalizedRole.includes('superadmin');
+  const isMentor = normalizedRole.includes('mentor') || normalizedRole.includes('instructor');
+  const isTrainee = !isAdmin && !isMentor;
 
   return (
-    <>
-      {/* Mobile Backdrop */}
-      {isOpenMobile && (
-        <div
-          onClick={onCloseMobile}
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 md:hidden"
-        />
-      )}
-
-      {/* Sidebar Container */}
-      <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-[#0F2C3A] text-white border-r border-slate-800/80 flex flex-col transition-transform duration-300 ease-in-out md:static md:translate-x-0 ${
-          isOpenMobile ? 'translate-x-0' : '-translate-x-full'
-        }`}
-      >
+    <aside className="w-64 bg-[#071923] text-white flex flex-col justify-between shrink-0 border-r border-white/10 font-sans">
+      <div>
         {/* Brand Header */}
-        <div className="p-5 border-b border-[#1A3D4D] flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            {logoUrl ? (
-              <img
-                src={logoUrl}
-                alt="Logo Platform"
-                className="w-9 h-9 rounded-xl object-contain bg-white/10 p-0.5 border border-amber-300/30 shadow-inner shrink-0"
-              />
-            ) : (
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#F5C748] to-[#f8d87a] flex items-center justify-center text-[#0F2C3A] font-extrabold text-lg shadow-inner shrink-0">
-                <GraduationCap className="w-5 h-5 stroke-[2.5]" />
-              </div>
-            )}
-            <div>
-              <div className="flex items-center space-x-1">
-                <span className="text-lg font-black tracking-tight text-white">AKTARA</span>
-                <span className="text-lg font-black tracking-tight text-[#F5C748]">Academy</span>
-              </div>
-              <p className="text-[10px] text-slate-300 tracking-wider uppercase font-semibold">
-                TOT LMS & Sertifikasi
-              </p>
-            </div>
+        <div className="p-6 border-b border-white/10 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-[#F5C748] text-[#0F2C3A] flex items-center justify-center font-black text-xl shadow-lg">
+            A
           </div>
-
-          {/* Close button for mobile */}
-          <button
-            onClick={onCloseMobile}
-            className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#1A3D4D]"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Current Active Workspace Indicator Badge */}
-        <div className="px-5 py-3 border-b border-[#1A3D4D] bg-[#0A1D28]/60 flex items-center space-x-2.5">
-          <span className="w-2 h-2 rounded-full bg-[#F5C748] animate-pulse shrink-0"></span>
-          <div className="overflow-hidden">
-            <span className="text-[10px] uppercase font-extrabold text-slate-400 tracking-wider block">
-              Ruang Kerja Aktif
-            </span>
-            <span className="text-xs font-black text-[#F5C748] truncate block">
-              {roleDisplayNames[currentRole]}
-            </span>
-          </div>
-        </div>
-
-        {/* Navigation Menu Links */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-none">
           <div>
-            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block px-2 mb-2">
-              Menu Navigasi Main
-            </span>
-
-            <nav className="space-y-1">
-              {/* GURU / TRAINEE NAV LINKS */}
-              {currentRole === 'trainee' && (
-                <>
-                  <button
-                    onClick={() => {
-                      onTraineeTabChange('dashboard');
-                      onCloseMobile();
-                    }}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
-                      activeTraineeTab === 'dashboard'
-                        ? 'bg-[#1A3D4D] text-[#F5C748] border-l-4 border-l-[#F5C748] shadow-sm'
-                        : 'text-slate-300 hover:bg-[#1A3D4D]/60 hover:text-white'
-                    }`}
-                  >
-                    <Sparkles className="w-4 h-4 text-[#F5C748]" />
-                    <span>Dashboard</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      onTraineeTabChange('lms');
-                      onCloseMobile();
-                    }}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
-                      activeTraineeTab === 'lms'
-                        ? 'bg-[#1A3D4D] text-[#F5C748] border-l-4 border-l-[#F5C748] shadow-sm'
-                        : 'text-slate-300 hover:bg-[#1A3D4D]/60 hover:text-white'
-                    }`}
-                  >
-                    <BookOpen className="w-4 h-4" />
-                    <span>Modul Belajar</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      onTraineeTabChange('tasks');
-                      onCloseMobile();
-                    }}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
-                      activeTraineeTab === 'tasks'
-                        ? 'bg-[#1A3D4D] text-[#F5C748] border-l-4 border-l-[#F5C748] shadow-sm'
-                        : 'text-slate-300 hover:bg-[#1A3D4D]/60 hover:text-white'
-                    }`}
-                  >
-                    <FileCheck2 className="w-4 h-4" />
-                    <span>Tugas & Portofolio</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      onTraineeTabChange('certificate');
-                      onCloseMobile();
-                    }}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
-                      activeTraineeTab === 'certificate'
-                        ? 'bg-[#1A3D4D] text-[#F5C748] border-l-4 border-l-[#F5C748] shadow-sm'
-                        : 'text-slate-300 hover:bg-[#1A3D4D]/60 hover:text-white'
-                    }`}
-                  >
-                    <Award className="w-4 h-4 text-[#F5C748]" />
-                    <span>E-Sertifikat</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      onTraineeTabChange('profile');
-                      onCloseMobile();
-                    }}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
-                      activeTraineeTab === 'profile'
-                        ? 'bg-[#1A3D4D] text-[#F5C748] border-l-4 border-l-[#F5C748] shadow-sm'
-                        : 'text-slate-300 hover:bg-[#1A3D4D]/60 hover:text-white'
-                    }`}
-                  >
-                    <User className="w-4 h-4" />
-                    <span>Edit Profil</span>
-                  </button>
-                </>
-              )}
-
-              {/* MENTOR / EVALUATOR NAV LINKS */}
-              {currentRole === 'mentor' && (
-                <>
-                  <button
-                    onClick={() => {
-                      onMentorTabChange('dashboard');
-                      onCloseMobile();
-                    }}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
-                      activeMentorTab === 'dashboard'
-                        ? 'bg-[#1A3D4D] text-[#F5C748] border-l-4 border-l-[#F5C748] shadow-sm'
-                        : 'text-slate-300 hover:bg-[#1A3D4D]/60 hover:text-white'
-                    }`}
-                  >
-                    <Sparkles className="w-4 h-4 text-[#F5C748]" />
-                    <span>Overview Mentor</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      onMentorTabChange('grading');
-                      onCloseMobile();
-                    }}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
-                      activeMentorTab === 'grading'
-                        ? 'bg-[#1A3D4D] text-[#F5C748] border-l-4 border-l-[#F5C748] shadow-sm'
-                        : 'text-slate-300 hover:bg-[#1A3D4D]/60 hover:text-white'
-                    }`}
-                  >
-                    <FileCheck2 className="w-4 h-4" />
-                    <span>Grading Hub (Antrean)</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      onMentorTabChange('live_session');
-                      onCloseMobile();
-                    }}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
-                      activeMentorTab === 'live_session'
-                        ? 'bg-[#1A3D4D] text-[#F5C748] border-l-4 border-l-[#F5C748] shadow-sm'
-                        : 'text-slate-300 hover:bg-[#1A3D4D]/60 hover:text-white'
-                    }`}
-                  >
-                    <Calendar className="w-4 h-4" />
-                    <span>Live Session Hub</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      onMentorTabChange('trainees');
-                      onCloseMobile();
-                    }}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
-                      activeMentorTab === 'trainees'
-                        ? 'bg-[#1A3D4D] text-[#F5C748] border-l-4 border-l-[#F5C748] shadow-sm'
-                        : 'text-slate-300 hover:bg-[#1A3D4D]/60 hover:text-white'
-                    }`}
-                  >
-                    <Users className="w-4 h-4" />
-                    <span>Monitoring Peserta</span>
-                  </button>
-                </>
-              )}
-
-              {/* SUPER ADMIN NAV LINKS */}
-              {currentRole === 'admin' && (
-                <>
-                  <button
-                    onClick={() => {
-                      onAdminTabChange('dashboard');
-                      onCloseMobile();
-                    }}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
-                      activeAdminTab === 'dashboard'
-                        ? 'bg-[#1A3D4D] text-[#F5C748] border-l-4 border-l-[#F5C748] shadow-sm'
-                        : 'text-slate-300 hover:bg-[#1A3D4D]/60 hover:text-white'
-                    }`}
-                  >
-                    <Sparkles className="w-4 h-4 text-[#F5C748]" />
-                    <span>Executive Dashboard</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      onAdminTabChange('promotions');
-                      onCloseMobile();
-                    }}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
-                      activeAdminTab === 'promotions'
-                        ? 'bg-[#1A3D4D] text-[#F5C748] border-l-4 border-l-[#F5C748] shadow-sm'
-                        : 'text-slate-300 hover:bg-[#1A3D4D]/60 hover:text-white'
-                    }`}
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Approval Promosi</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      onAdminTabChange('batch_cert');
-                      onCloseMobile();
-                    }}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
-                      activeAdminTab === 'batch_cert'
-                        ? 'bg-[#1A3D4D] text-[#F5C748] border-l-4 border-l-[#F5C748] shadow-sm'
-                        : 'text-slate-300 hover:bg-[#1A3D4D]/60 hover:text-white'
-                    }`}
-                  >
-                    <SlidersHorizontal className="w-4 h-4" />
-                    <span>Master Batch & Sertifikat</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      onAdminTabChange('security_audit');
-                      onCloseMobile();
-                    }}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
-                      activeAdminTab === 'security_audit'
-                        ? 'bg-[#1A3D4D] text-[#F5C748] border-l-4 border-l-[#F5C748] shadow-sm'
-                        : 'text-slate-300 hover:bg-[#1A3D4D]/60 hover:text-white'
-                    }`}
-                  >
-                    <ShieldAlert className="w-4 h-4" />
-                    <span>Audit Logs & Security</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      onAdminTabChange('settings');
-                      onCloseMobile();
-                    }}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
-                      activeAdminTab === 'settings'
-                        ? 'bg-[#1A3D4D] text-[#F5C748] border-l-4 border-l-[#F5C748] shadow-sm'
-                        : 'text-slate-300 hover:bg-[#1A3D4D]/60 hover:text-white'
-                    }`}
-                  >
-                    <Settings className="w-4 h-4 text-[#F5C748]" />
-                    <span>Pengaturan System</span>
-                  </button>
-                </>
-              )}
-            </nav>
+            <h1 className="font-black text-sm tracking-wide text-white">AKTARA ACADEMY</h1>
+            <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-widest">CONSOLE SYSTEM V2.4</p>
           </div>
         </div>
 
-        {/* Sidebar Footer Status & Logout */}
-        <div className="p-4 border-t border-[#1A3D4D] bg-[#0a1e28] space-y-2">
-          <div className="flex items-center justify-between p-2.5 bg-[#1A3D4D]/80 rounded-xl border border-slate-700/60">
-            <div className="flex items-center space-x-2">
-              <span className="w-2 h-2 rounded-full bg-[#F5C748] animate-pulse"></span>
-              <span className="text-[11px] font-extrabold text-[#F5C748] uppercase tracking-wider">
-                System Active
-              </span>
-            </div>
-            <span className="text-[10px] font-mono font-bold text-slate-400">
-              Batch 5 TOT
-            </span>
-          </div>
+        {/* Navigation Menu */}
+        <div className="p-4 space-y-6">
+          {/* 1. MENU SUPER ADMIN / ADMIN */}
+          {isAdmin && (
+            <div>
+              <p className="px-3 text-[10px] font-black text-gray-400 uppercase tracking-wider mb-2">
+                MENU NAVIGASI MAIN
+              </p>
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('dashboard')}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    activeTab === 'dashboard'
+                      ? 'bg-[#0F2C3A] text-white border border-white/10 shadow-sm'
+                      : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <LayoutDashboard className="w-4 h-4 text-[#F5C748]" />
+                  <span>Dashboard Utama</span>
+                </button>
 
-          {onLogout && (
-            <button
-              onClick={() => {
-                onLogout();
-                onCloseMobile();
-              }}
-              className="w-full flex items-center justify-center space-x-2 py-2 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs font-bold transition cursor-pointer"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Keluar / Logout</span>
-            </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('batches')}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    activeTab === 'batches'
+                      ? 'bg-[#0F2C3A] text-white border border-white/10 shadow-sm'
+                      : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <Layers className="w-4 h-4 text-[#F5C748]" />
+                  <span>Batch Pelatihan</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('lms')}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    activeTab === 'lms'
+                      ? 'bg-[#0F2C3A] text-white border border-white/10 shadow-sm'
+                      : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <BookOpenCheck className="w-4 h-4 text-[#F5C748]" />
+                  <span>Integrasi LMS</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('certificate-mapper')}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    activeTab === 'certificate-mapper'
+                      ? 'bg-[#0F2C3A] text-white border border-white/10 shadow-sm'
+                      : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <Award className="w-4 h-4 text-[#F5C748]" />
+                  <span>Pemetaan Sertifikat</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('promotion-approval')}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    activeTab === 'promotion-approval'
+                      ? 'bg-[#0F2C3A] text-white border border-white/10 shadow-sm'
+                      : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <UserCheck className="w-4 h-4 text-[#F5C748]" />
+                  <span>Promosi Mentor</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('audit-logs')}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    activeTab === 'audit-logs'
+                      ? 'bg-[#0F2C3A] text-white border border-white/10 shadow-sm'
+                      : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <ShieldAlert className="w-4 h-4 text-[#F5C748]" />
+                  <span>Audit Keamanan</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('settings')}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    activeTab === 'settings'
+                      ? 'bg-[#0F2C3A] text-white border border-white/10 shadow-sm'
+                      : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <Settings className="w-4 h-4 text-[#F5C748]" />
+                  <span>Pengaturan System</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 2. MENU MENTOR / MASTER TRAINER (NAVIGASI SIDEBAR MENTOR) */}
+          {isMentor && (
+            <div>
+              <p className="px-3 text-[10px] font-black text-gray-400 uppercase tracking-wider mb-2">
+                WORKSPACE MENTOR
+              </p>
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('webinars')}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    activeTab === 'webinars' || activeTab === 'mentor'
+                      ? 'bg-[#0F2C3A] text-white border border-white/10 shadow-sm'
+                      : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <Video className="w-4 h-4 text-[#F5C748]" />
+                  <span>Sesi Webinar</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('progress')}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    activeTab === 'progress'
+                      ? 'bg-[#0F2C3A] text-white border border-white/10 shadow-sm'
+                      : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <Users className="w-4 h-4 text-[#F5C748]" />
+                  <span>Progres & Penilaian</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('announcements')}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    activeTab === 'announcements'
+                      ? 'bg-[#0F2C3A] text-white border border-white/10 shadow-sm'
+                      : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <Megaphone className="w-4 h-4 text-[#F5C748]" />
+                  <span>Broadcast Pengumuman</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('quizzes')}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    activeTab === 'quizzes'
+                      ? 'bg-[#0F2C3A] text-white border border-white/10 shadow-sm'
+                      : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <QuizIcon className="w-4 h-4 text-[#F5C748]" />
+                  <span>Kuis & Jawaban Trainee</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 3. MENU TRAINEE / GURU */}
+          {isTrainee && (
+            <div>
+              <p className="px-3 text-[10px] font-black text-gray-400 uppercase tracking-wider mb-2">
+                RUANG BELAJAR GURU
+              </p>
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('modules')}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    activeTab === 'modules' || activeTab === 'trainee'
+                      ? 'bg-[#0F2C3A] text-white border border-white/10 shadow-sm'
+                      : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <BookOpen className="w-4 h-4 text-[#F5C748]" />
+                  <span>Materi LMS</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('live')}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    activeTab === 'live'
+                      ? 'bg-[#0F2C3A] text-white border border-white/10 shadow-sm'
+                      : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <Video className="w-4 h-4 text-[#F5C748]" />
+                  <span>Live Mentoring</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('quizzes')}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    activeTab === 'quizzes'
+                      ? 'bg-[#0F2C3A] text-white border border-white/10 shadow-sm'
+                      : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <HelpCircle className="w-4 h-4 text-[#F5C748]" />
+                  <span>Kuis Refleksi</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('certificate')}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    activeTab === 'certificate'
+                      ? 'bg-[#0F2C3A] text-white border border-white/10 shadow-sm'
+                      : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <Award className="w-4 h-4 text-[#F5C748]" />
+                  <span>E-Sertifikat Saya</span>
+                </button>
+              </div>
+            </div>
           )}
         </div>
-      </aside>
-    </>
+      </div>
+
+      {/* Footer Logout */}
+      <div className="p-4 border-t border-white/10">
+        <button
+          type="button"
+          onClick={onLogout}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs font-bold rounded-xl transition cursor-pointer"
+        >
+          <LogOut className="w-4 h-4" />
+          <span>Keluar / Logout</span>
+        </button>
+      </div>
+    </aside>
   );
 };
 
+export default Sidebar;
